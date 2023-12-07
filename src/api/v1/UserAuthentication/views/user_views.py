@@ -1,33 +1,15 @@
-from fastapi import APIRouter, Depends
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-
-from src.api.v1.UserAuthentication.schemas.user_schemas import UserRegistrationRequestSchema, UserLoginRequestSchema, \
-    UserResponseSchema
-from src.api.v1.UserAuthentication.services.user_services import UserServices
 from database.database import get_db
-from src.api.v1.UserAuthentication.utils.auth_utils import get_current_active_user
-
-user_api_router = APIRouter(
-    prefix="/user",
-)
+from src.api.v1.UserAuthentication.server_files import user_service_pb2, user_service_pb2_grpc
+from src.api.v1.UserAuthentication.services.user_services import UserServices as us
 
 
-@user_api_router.get("/secure-data/", status_code=200)
-def get_secure_data(current_user: UserResponseSchema = Depends(get_current_active_user)):
-    return UserServices.test_api(current_user)
+db = get_db()
 
+class UserServices(user_service_pb2_grpc.UserServiceServicer):
+    def CreateUser(self, request, context):
+        user = us.register(request=request, db_session=db)
+        return user_service_pb2.CreateUserResponse(user_id=str(user.get('data').user_id), username=user.get('data').username, email=user.get('data').email)
 
-@user_api_router.post("/register", status_code=201)
-def register_user(request: UserRegistrationRequestSchema, db: Session = Depends(get_db)):
-    return UserServices.register(request=request, db_session=db)
-
-
-@user_api_router.post("/token", status_code=200)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    return UserServices.get_token(form_data=form_data, db_session=db)
-
-
-@user_api_router.post("/login", status_code=200)
-def login_user(request: UserLoginRequestSchema, db: Session = Depends(get_db)):
-    return UserServices.login(request=request, db_session=db)
+    def AuthenticateUser(self, request, context):
+        user_token = us.login(request=request, db_session=db)
+        return user_service_pb2.LoginUserResponse(access_token=user_token.get('access_token'), token_type=user_token.get('token_type'))
