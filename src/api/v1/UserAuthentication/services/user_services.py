@@ -1,6 +1,8 @@
+from src.api.v1.UserAuthentication.utils.custom_exceptions import CredentialsException, InActiveUserException
 from src.api.v1.UserAuthentication.utils.hash_utils import Hasher
 from src.api.v1.UserAuthentication.utils.token_utils import Token
 from src.api.v1.UserAuthentication.models.user_models import User
+from src.api.v1.UserAuthentication.utils.auth_utils import get_current_active_user, get_current_user
 from src.api.v1.UserAuthentication.utils.constants import ERR_USERNAME_EXISTS, ERR_EMAIL_EXISTS, ERR_SQLALCHEMY_ERROR, \
     MSG_USER_REGISTER_SUCCESSFULLY, ERR_INVALID_USERNAME, ERR_INVALID_PASSWORD, MSG_LOG_IN_SUCCESSFULLY, \
     ERR_INVALID_TOKEN, MSG_RETRIEVE_USER, INVALID_CREDENTIALS, TEST_API_RESPONSE_DATA, SUCCESS_EXECUTED
@@ -74,3 +76,17 @@ class UserServices:
         return Response(status_code=200,
                         message=SUCCESS_EXECUTED.format(username=current_user.username),
                         data=TEST_API_RESPONSE_DATA)
+
+    @staticmethod
+    def validate_token(db_session, access_token):
+        try:
+            user = get_current_user(db=db_session, token=access_token)
+            if user:
+                user_status =  get_current_active_user(current_user=user)
+        except CredentialsException as error:
+            print(f"Error - CredentialsException : {error}")
+            return {"message": "Credentials are Incorrect", "active":False}
+        except InActiveUserException as err: 
+            print(f"Error - InActiveUserException : {err}")
+            return {"message": "User is inacitve", "active":False}
+        return {"user":user, "active": True}

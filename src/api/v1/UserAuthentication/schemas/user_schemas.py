@@ -34,3 +34,5 @@ class UserResponseSchema(BaseModel):
     user_id: int
     username: str
     email: str
+
+
